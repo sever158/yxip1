@@ -1,0 +1,45 @@
+name: IP Optimizer
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 21 * * *'  # UTC 21:00 = 鍖椾含鏃堕棿5:00
+    - cron: '0 9 * * *'   # UTC 9:00 = 鍖椾含鏃堕棿17:00
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    env:
+      MODE: TCP
+      PORT: 443
+      RTT_RANGE: "40~250"
+      LOSS_MAX: 10
+      DOWNLOAD_MIN: 1.00
+      THREADS: 20         # 榛樿骞跺彂鏁�
+      IP_COUNT: 200       # 榛樿娴嬭瘯IP鏁伴噺
+      SPEED_URL: "https://speed.cloudflare.com/__down?bytes=10000000"
+      CLOUDFLARE_IPS_URL: "www.cloudflare.com/ips-v4"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install requests numpy tqdm  # 娣诲姞tqdm渚濊禆[2,11](@ref)
+        sudo apt-get update
+        sudo apt-get install -y net-tools
+
+    - name: Run IP Optimizer
+      run: python ip_optimizer.py
+
+    - name: Commit results
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add results/
+        git commit -m "Auto: Update optimized IPs"
+        git push
