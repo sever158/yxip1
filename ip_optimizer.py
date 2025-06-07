@@ -24,7 +24,7 @@ CONFIG = {
     "RTT_RANGE": "10~5000",          # 延迟范围(ms)
     "LOSS_MAX": 30.0,               # 最大丢包率(%)
     "THREADS": 50,                  # 并发线程数
-    "IP_POOL_SIZE": 10000,          # IP池总大小 [新增]
+    "IP_POOL_SIZE": 100000,          # IP池总大小 [新增]
     "TEST_IP_COUNT": 1000,          # 实际测试IP数量 [新增]
     "TOP_IPS_LIMIT": 10,            # 精选IP数量
     "CLOUDFLARE_IPS_URL": "https://www.cloudflare.com/ips-v4",
