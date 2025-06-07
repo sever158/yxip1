@@ -28,7 +28,7 @@ CONFIG = {
     "TEST_IP_COUNT": 1000,          # 实际测试IP数量 [新增]
     "TOP_IPS_LIMIT": 10,            # 精选IP数量
     "CLOUDFLARE_IPS_URL": "https://www.cloudflare.com/ips-v4",
-    "CUSTOM_IPS_FILE": "",          # 自定义IP池文件路径
+    "CUSTOM_IPS_FILE": "custom_ips.txt",          # 自定义IP池文件路径
     "TCP_RETRY": 3,                 # TCP重试次数
     "SPEED_TIMEOUT": 10,            # 测速超时时间
     "SPEED_URL": "https://speed.cloudflare.com/__down?bytes=10000000"  # 测速URL
