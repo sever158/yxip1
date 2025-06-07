@@ -18,7 +18,7 @@ jobs:
       TEST_IP_COUNT: 200  # 实际测试IP数量 [新增]
       SPEED_URL: "https://speed.cloudflare.com/__down?bytes=10000000"
       CLOUDFLARE_IPS_URL: "www.cloudflare.com/ips-v4"
-      CUSTOM_IPS_FILE: "" # 自定义IP池文件
+      CUSTOM_IPS_FILE: "custom_ips.txt" # 自定义IP池文件
 
     steps:
     - uses: actions/checkout@v4
