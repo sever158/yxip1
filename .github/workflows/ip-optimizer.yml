@@ -13,8 +13,8 @@ jobs:
       PORT: 443
       RTT_RANGE: "40~250"
       LOSS_MAX: 10
-      THREADS: 20         # 默认并发数
-      IP_POOL_SIZE: 10000 # IP池总大小 [新增]
+      THREADS: 50         # 默认并发数
+      IP_POOL_SIZE: 100000 # IP池总大小 [新增]
       TEST_IP_COUNT: 200  # 实际测试IP数量 [新增]
       SPEED_URL: "https://speed.cloudflare.com/__down?bytes=10000000"
       CLOUDFLARE_IPS_URL: "www.cloudflare.com/ips-v4"
