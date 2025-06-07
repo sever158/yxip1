@@ -24,9 +24,11 @@ CONFIG = {
     "RTT_RANGE": "10~5000",          # 延迟范围(ms)
     "LOSS_MAX": 30.0,               # 最大丢包率(%)
     "THREADS": 50,                  # 并发线程数
-    "IP_COUNT": 1000,                # 测试IP数量
+    "IP_POOL_SIZE": 10000,          # IP池总大小 [新增]
+    "TEST_IP_COUNT": 1000,          # 实际测试IP数量 [新增]
     "TOP_IPS_LIMIT": 10,            # 精选IP数量
     "CLOUDFLARE_IPS_URL": "https://www.cloudflare.com/ips-v4",
+    "CUSTOM_IPS_FILE": "",          # 自定义IP池文件路径
     "TCP_RETRY": 3,                 # TCP重试次数
     "SPEED_TIMEOUT": 10,            # 测速超时时间
     "SPEED_URL": "https://speed.cloudflare.com/__down?bytes=10000000"  # 测速URL
@@ -43,23 +45,33 @@ def init_env():
     
     # 自动添加URL协议头
     cf_url = os.getenv('CLOUDFLARE_IPS_URL')
-    if not cf_url.startswith(('http://', 'https://')):
+    if cf_url and not cf_url.startswith(('http://', 'https://')):
         os.environ['CLOUDFLARE_IPS_URL'] = f"https://{cf_url}"
     
     # 禁用TLS警告
     urllib3.disable_warnings()
 
-# 获取Cloudflare IP段 
-def fetch_cloudflare_ips():
+# 获取IP段
+def fetch_ip_ranges():
+    custom_file = os.getenv('CUSTOM_IPS_FILE')
+    if custom_file and os.path.exists(custom_file):
+        print(f"🔧 使用自定义IP池文件: {custom_file}")
+        try:
+            with open(custom_file, 'r') as f:
+                return [line.strip() for line in f.readlines() if line.strip()]
+        except Exception as e:
+            print(f"🚨 读取自定义IP池失败: {e}")
+    
+    # 默认从Cloudflare获取
     url = os.getenv('CLOUDFLARE_IPS_URL')
     try:
         res = requests.get(url, timeout=10, verify=False)
         return res.text.splitlines()
     except Exception as e:
-        print(f"🚨 获取IP段失败: {e}")
+        print(f"🚨 获取Cloudflare IP段失败: {e}")
         return []
 
-# 生成随机IP（基于位运算实现）[5](@ref)
+# 生成随机IP（基于位运算实现）
 def generate_random_ip(subnet):
     """根据CIDR生成子网内的随机合法IP（排除网络地址和广播地址）"""
     try:
@@ -79,7 +91,7 @@ def generate_random_ip(subnet):
         base_ip = subnet.split('/')[0]
         return ".".join(base_ip.split('.')[:3] + [str(random.randint(1, 254))])
 
-# 自定义Ping测试（跨平台兼容）[6,8](@ref)
+# 自定义Ping测试（跨平台兼容）
 def custom_ping(ip):
     target = urlparse(os.getenv('PING_TARGET')).netloc or os.getenv('PING_TARGET')
     count = int(os.getenv('PING_COUNT'))
@@ -140,7 +152,7 @@ def custom_ping(ip):
         print(f"Ping测试异常: {e}")
         return float('inf'), 100.0
 
-# TCP连接测试（带重试机制）[8,10](@ref)
+# TCP连接测试（带重试机制）
 def tcp_ping(ip, port, timeout=2):
     retry = int(os.getenv('TCP_RETRY', 3))
     success_count = 0
@@ -229,7 +241,7 @@ if __name__ == "__main__":
     
     # 1. 打印配置参数
     print("="*60)
-    print(f"{'IP网络优化器 v2.1':^60}")
+    print(f"{'IP网络优化器 v2.2':^60}")
     print("="*60)
     print(f"测试模式: {os.getenv('MODE')}")
     
@@ -244,35 +256,62 @@ if __name__ == "__main__":
     print(f"延迟范围: {os.getenv('RTT_RANGE')}ms")
     print(f"最大丢包: {os.getenv('LOSS_MAX')}%")
     print(f"并发线程: {os.getenv('THREADS')}")
-    print(f"测试IP数: {os.getenv('IP_COUNT')}")
+    print(f"IP池大小: {os.getenv('IP_POOL_SIZE')}")  # [修改]
+    print(f"测试IP数: {os.getenv('TEST_IP_COUNT')}")  # [修改]
+    
+    # 显示自定义IP池信息
+    custom_file = os.getenv('CUSTOM_IPS_FILE')
+    if custom_file:
+        print(f"自定义IP池: {custom_file}")
+    else:
+        print(f"Cloudflare IP源: {os.getenv('CLOUDFLARE_IPS_URL')}")
+    
     print(f"测速URL: {os.getenv('SPEED_URL')}")
     print("="*60 + "\n")
     
-    # 2. 获取IP段并生成随机IP池
-    subnets = fetch_cloudflare_ips()
+    # 2. 获取IP段并生成随机IP池 [修改]
+    subnets = fetch_ip_ranges()
     if not subnets:
-        print("❌ 无法获取Cloudflare IP段，程序终止")
+        print("❌ 无法获取IP段，程序终止")
         exit(1)
     
-    print(f"✅ 获取到 {len(subnets)} 个Cloudflare IP段")
+    # 显示IP段来源信息
+    source_type = "自定义" if custom_file and os.path.exists(custom_file) else "Cloudflare"
+    print(f"✅ 获取到 {len(subnets)} 个{source_type} IP段")
     
-    # 创建IP池
-    ip_pool = set()
-    while len(ip_pool) < int(os.getenv('IP_COUNT')):
-        subnet = random.choice(subnets)
-        ip = generate_random_ip(subnet)
-        ip_pool.add(ip)
+    # 创建IP池 [修改]
+    ip_pool_size = int(os.getenv('IP_POOL_SIZE'))
+    test_ip_count = int(os.getenv('TEST_IP_COUNT'))
     
-    print(f"✅ 生成 {len(ip_pool)} 个随机IP")
+    # 生成完整IP池
+    full_ip_pool = set()
+    print(f"🔧 正在生成 {ip_pool_size} 个随机IP的大池...")
+    with tqdm(total=ip_pool_size, desc="生成IP大池", unit="IP") as pbar:
+        while len(full_ip_pool) < ip_pool_size:
+            subnet = random.choice(subnets)
+            ip = generate_random_ip(subnet)
+            if ip not in full_ip_pool:
+                full_ip_pool.add(ip)
+                pbar.update(1)
+    
+    print(f"✅ 成功生成 {len(full_ip_pool)} 个随机IP的大池")
+    
+    # 从大池中随机选择测试IP [新增]
+    if test_ip_count > len(full_ip_pool):
+        print(f"⚠️ 警告: 测试IP数量({test_ip_count})大于IP池大小({len(full_ip_pool)})，使用全部IP")
+        test_ip_count = len(full_ip_pool)
+    
+    test_ip_pool = random.sample(list(full_ip_pool), test_ip_count)
+    print(f"🔧 从大池中随机选择 {len(test_ip_pool)} 个IP进行测试")
     
     # 3. 第一阶段：Ping测试（筛选IP）
     ping_results = []
     with ThreadPoolExecutor(max_workers=int(os.getenv('THREADS'))) as executor:
-        future_to_ip = {executor.submit(ping_test, ip): ip for ip in ip_pool}
+        future_to_ip = {executor.submit(ping_test, ip): ip for ip in test_ip_pool}
         
         # 进度条配置
         with tqdm(
-            total=len(ip_pool), 
+            total=len(test_ip_pool), 
             desc="🚀 Ping测试进度", 
             unit="IP",
             bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
@@ -358,7 +397,8 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print(f"{'🔥 测试结果统计':^60}")
     print("="*60)
-    print(f"总测试IP数: {len(ping_results)}")
+    print(f"IP池大小: {ip_pool_size}")
+    print(f"实际测试IP数: {len(ping_results)}")
     print(f"通过Ping测试IP数: {len(passed_ips)}")
     print(f"测速IP数: {len(full_results)}")
     print(f"精选TOP IP: {len(sorted_ips)}")
