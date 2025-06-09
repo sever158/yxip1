@@ -27,7 +27,7 @@ CONFIG = {
     "IP_POOL_SIZE": 100000,          # IP池总大小 [新增]
     "TEST_IP_COUNT": 500,          # 实际测试IP数量 [新增]
     "TOP_IPS_LIMIT": 15,            # 精选IP数量
-    "CLOUDFLARE_IPS_URL": "https://raw.githubusercontent.com/JasonV001/yxip/refs/heads/main/CloudflareV4V6ip.txt",
+    "CLOUDFLARE_IPS_URL": "https://www.cloudflare.com/ips-v4",
     "CUSTOM_IPS_FILE": "custom_ips.txt",          # 自定义IP池文件路径
     "TCP_RETRY": 2,                 # TCP重试次数
     "SPEED_TIMEOUT": 5,            # 测速超时时间
