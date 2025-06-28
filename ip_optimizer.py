@@ -16,7 +16,7 @@ import ipaddress
 ####################################################
 CONFIG = {
     "MODE": "TCP",  # 测试模式：PING/TCP
-    "PING_TARGET": "https://www.apple.com/library/test/success.html",  # Ping测试目标
+    "PING_TARGET": "https://www.google.com/generate_204",  # Ping测试目标
     "PING_COUNT": 3,  # Ping次数
     "PING_TIMEOUT": 5,  # Ping超时(秒)
     "PORT": 443,  # TCP测试端口
@@ -24,9 +24,9 @@ CONFIG = {
     "LOSS_MAX": 30.0,  # 最大丢包率(%)
     "THREADS": 50,  # 并发线程数
     "IP_POOL_SIZE": 50000,  # IPv4池总大小
-    "IPV6_POOL_SIZE": 20000,  # IPv6池总大小
+    "IPV6_POOL_SIZE": 5000,  # IPv6池总大小
     "TEST_IP_COUNT": 1000,  # IPv4实际测试IP数量
-    "TEST_IPV6_COUNT": 1000,  # IPv6实际测试IP数量
+    "TEST_IPV6_COUNT": 300,  # IPv6实际测试IP数量
     "TOP_IPS_LIMIT": 15,  # 精选IP数量
     "CLOUDFLARE_IPS_URL": "https://www.cloudflare.com/ips-v4",
     "CLOUDFLARE_IPS_V6_URL": "https://www.cloudflare.com/ips-v6",
@@ -59,6 +59,9 @@ def fetch_ip_ranges(ipv6=False):
         except Exception as e:
             print(f"🚨 读取自定义IP池失败: {e}")
     url = os.getenv('CLOUDFLARE_IPS_V6_URL') if ipv6 else os.getenv('CLOUDFLARE_IPS_URL')
+    if not url:
+        print(f"🚨 无法获取{'IPv6' if ipv6 else 'IPv4'} IP段URL")
+        return []
     try:
         res = requests.get(url, timeout=10, verify=False)
         return res.text.splitlines()
@@ -111,9 +114,9 @@ def generate_random_ip(subnet):
             return None
 
 def custom_ping(ip):
-    target = urlparse(os.getenv('PING_TARGET')).netloc or os.getenv('PING_TARGET')
-    count = int(os.getenv('PING_COUNT'))
-    timeout = int(os.getenv('PING_TIMEOUT'))
+    target = urlparse(os.getenv('PING_TARGET', 'https://www.google.com/generate_204')).netloc or os.getenv('PING_TARGET', 'https://www.google.com/generate_204')
+    count = int(os.getenv('PING_COUNT', '3'))
+    timeout = int(os.getenv('PING_TIMEOUT', '5'))
     try:
         if os.name == 'nt':
             cmd = f"ping -n {count} -w {timeout*1000} {target}"
@@ -152,7 +155,7 @@ def custom_ping(ip):
         return float('inf'), 100.0
 
 def tcp_ping(ip, port, timeout=2):
-    retry = int(os.getenv('TCP_RETRY', 3))
+    retry = int(os.getenv('TCP_RETRY', '3'))
     success_count = 0
     total_rtt = 0
     for _ in range(retry):
@@ -170,8 +173,10 @@ def tcp_ping(ip, port, timeout=2):
     return avg_rtt, loss_rate
 
 def speed_test(ip):
-    url = os.getenv('SPEED_URL')
-    timeout = float(os.getenv('SPEED_TIMEOUT', 10))
+    url = os.getenv('SPEED_URL', 'https://speed.cloudflare.com/__down?bytes=10000000')
+    if not url:
+        return 0.0
+    timeout = float(os.getenv('SPEED_TIMEOUT', '10'))
     try:
         parsed_url = urlparse(url)
         host = parsed_url.hostname
@@ -195,7 +200,7 @@ def ping_test(ip):
     if os.getenv('MODE') == "PING":
         rtt, loss = custom_ping(ip)
     else:
-        rtt, loss = tcp_ping(ip, int(os.getenv('PORT')))
+        rtt, loss = tcp_ping(ip, int(os.getenv('PORT', '443')))
     return (ip, rtt, loss)
 
 def full_test(ip_data):
@@ -215,9 +220,9 @@ if __name__ == "__main__":
         if not subnets:
             print(f"❌ 无法获取{family} IP段，程序终止")
             continue
-        pool_size = int(os.getenv('IPV6_POOL_SIZE')) if is_v6 else int(os.getenv('IP_POOL_SIZE'))
-        test_count = int(os.getenv('TEST_IPV6_COUNT')) if is_v6 else int(os.getenv('TEST_IP_COUNT'))
-        top_limit = int(os.getenv('TOP_IPS_LIMIT'))
+        pool_size = int(os.getenv('IPV6_POOL_SIZE', '5000')) if is_v6 else int(os.getenv('IP_POOL_SIZE', '50000'))
+        test_count = int(os.getenv('TEST_IPV6_COUNT', '300')) if is_v6 else int(os.getenv('TEST_IP_COUNT', '1000'))
+        top_limit = int(os.getenv('TOP_IPS_LIMIT', '15'))
         full_ip_pool = set()
         print(f"🔧 正在生成 {pool_size} 个随机{family} IP...")
         with tqdm(total=pool_size, desc=f"生成{family}池", unit="IP") as pbar:
@@ -235,7 +240,7 @@ if __name__ == "__main__":
 
         # 1. Ping/TCP测试
         ping_results = []
-        with ThreadPoolExecutor(max_workers=int(os.getenv('THREADS'))) as executor:
+        with ThreadPoolExecutor(max_workers=int(os.getenv('THREADS', '50'))) as executor:
             future_to_ip = {executor.submit(ping_test, ip): ip for ip in test_ip_pool}
             with tqdm(
                 total=len(test_ip_pool),
@@ -250,8 +255,9 @@ if __name__ == "__main__":
                         print(f"\n🔧 {family} Ping测试异常: {e}")
                     finally:
                         pbar.update(1)
-        rtt_min, rtt_max = map(int, os.getenv('RTT_RANGE').split('~'))
-        loss_max = float(os.getenv('LOSS_MAX'))
+        rtt_range = os.getenv('RTT_RANGE', '10~2000')
+        rtt_min, rtt_max = map(int, rtt_range.split('~'))
+        loss_max = float(os.getenv('LOSS_MAX', '30.0'))
         passed_ips = [
             ip_data for ip_data in ping_results
             if rtt_min <= ip_data[1] <= rtt_max and ip_data[2] <= loss_max
@@ -263,7 +269,7 @@ if __name__ == "__main__":
             print(f"❌ 没有通过{family} Ping测试的IP，程序终止")
             continue
         full_results = []
-        with ThreadPoolExecutor(max_workers=int(os.getenv('THREADS'))) as executor:
+        with ThreadPoolExecutor(max_workers=int(os.getenv('THREADS', '50'))) as executor:
             future_to_ip = {executor.submit(full_test, ip_data): ip_data for ip_data in passed_ips}
             with tqdm(
                 total=len(passed_ips),
@@ -319,11 +325,14 @@ if __name__ == "__main__":
         print("="*60)
         print(f"✅ 结果已保存至 results/ 目录，文件后缀_{suffix}")
 
-    # 检查IPv6合法性
-    if is_v6:
-        with open('results/all_ips_v6.txt') as f:
-            for line in f:
-                try:
-                    ipaddress.IPv6Address(line.strip())
-                except Exception as e:
-                    print('非法IPv6:', line.strip())
+    # 检查IPv6合法性 - 只在文件存在时检查
+    if os.path.exists('results/all_ips_v6.txt'):
+        try:
+            with open('results/all_ips_v6.txt') as f:
+                for line in f:
+                    try:
+                        ipaddress.IPv6Address(line.strip())
+                    except Exception as e:
+                        print('非法IPv6:', line.strip())
+        except Exception as e:
+            print(f"检查IPv6合法性时出错: {e}")
