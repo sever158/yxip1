@@ -16,7 +16,7 @@ import ipaddress
 ####################################################
 CONFIG = {
     "MODE": "TCP",  # 测试模式：PING/TCP
-    "PING_TARGET": "https://www.google.com/generate_204",  # Ping测试目标
+    "PING_TARGET": "https://www.apple.com/library/test/success.html",  # Ping测试目标
     "PING_COUNT": 3,  # Ping次数
     "PING_TIMEOUT": 5,  # Ping超时(秒)
     "PORT": 443,  # TCP测试端口
@@ -24,9 +24,9 @@ CONFIG = {
     "LOSS_MAX": 30.0,  # 最大丢包率(%)
     "THREADS": 50,  # 并发线程数
     "IP_POOL_SIZE": 50000,  # IPv4池总大小
-    "IPV6_POOL_SIZE": 5000,  # IPv6池总大小
+    "IPV6_POOL_SIZE": 20000,  # IPv6池总大小
     "TEST_IP_COUNT": 1000,  # IPv4实际测试IP数量
-    "TEST_IPV6_COUNT": 300,  # IPv6实际测试IP数量
+    "TEST_IPV6_COUNT": 1000,  # IPv6实际测试IP数量
     "TOP_IPS_LIMIT": 15,  # 精选IP数量
     "CLOUDFLARE_IPS_URL": "https://www.cloudflare.com/ips-v4",
     "CLOUDFLARE_IPS_V6_URL": "https://www.cloudflare.com/ips-v6",
