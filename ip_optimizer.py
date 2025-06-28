@@ -16,7 +16,7 @@ import ipaddress
 ####################################################
 CONFIG = {
     "MODE": "TCP",  # 测试模式：PING/TCP
-    "PING_TARGET": "http://www.baidu.com/favicon.ico",  # Ping测试目标http://www.baidu.com/favicon.ico,https://www.google.com/generate_204,http://www.gstatic.com/generate_204
+    "PING_TARGET": "http://www.gstatic.com/generate_204",  # Ping测试目标http://www.baidu.com/favicon.ico,https://www.google.com/generate_204,http://www.gstatic.com/generate_204
     "PING_COUNT": 3,  # Ping次数
     "PING_TIMEOUT": 5,  # Ping超时(秒)
     "PORT": 443,  # TCP测试端口
